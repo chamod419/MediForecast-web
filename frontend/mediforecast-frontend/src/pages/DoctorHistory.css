@@ -1,0 +1,236 @@
+.hist-page*,.hist-page*::before,.hist-page*::after{box-sizing:border-box;}
+
+  .hist-page{
+    min-height:100vh; background:#060b16; color:#dde4f0;
+    font-family:'Outfit',sans-serif; padding:0 0 80px;
+    position:relative; overflow-x:hidden;
+  }
+
+  .hist-ambient{
+    position:fixed; top:-200px; right:10%; width:700px; height:600px;
+    background:radial-gradient(ellipse,rgba(59,130,246,0.06) 0%,transparent 65%);
+    pointer-events:none; z-index:0;
+  }
+
+  /* ── HEADER ── */
+  .hist-header{
+    display:flex; align-items:flex-end; justify-content:space-between; gap:20px;
+    padding:32px 40px 24px; border-bottom:1px solid rgba(255,255,255,0.065);
+    position:relative; z-index:1; flex-wrap:wrap;
+  }
+  .hist-breadcrumb{
+    display:flex; align-items:center; gap:6px;
+    font-size:12px; color:rgba(221,228,240,0.32); margin-bottom:8px;
+  }
+  .hist-bc-active{color:rgba(221,228,240,0.6); font-weight:500;}
+  .hist-title{font-size:28px; font-weight:900; letter-spacing:-0.5px; margin:0; line-height:1;}
+  .hist-sub{font-size:13.5px; color:rgba(221,228,240,0.5); margin:7px 0 0;}
+
+  .hist-header-actions{display:flex; gap:10px; align-items:center; flex-shrink:0;}
+
+  .hist-btn-primary{
+    display:flex; align-items:center; gap:8px; padding:10px 18px; border-radius:10px;
+    border:1px solid rgba(59,130,246,0.4); background:#3b82f6; color:#fff;
+    font-size:13.5px; font-weight:700; font-family:'Outfit',sans-serif;
+    cursor:pointer; transition:all .16s cubic-bezier(.4,0,.2,1);
+  }
+  .hist-btn-primary:hover{background:#2563eb;}
+  .hist-btn-primary:disabled{opacity:0.6; cursor:not-allowed;}
+
+  .hist-btn-secondary{
+    display:flex; align-items:center; gap:8px; padding:10px 16px; border-radius:10px;
+    border:1px solid rgba(255,255,255,0.11); background:transparent; color:rgba(221,228,240,0.7);
+    font-size:13.5px; font-weight:600; font-family:'Outfit',sans-serif;
+    cursor:pointer; transition:all .16s cubic-bezier(.4,0,.2,1);
+  }
+  .hist-btn-secondary:hover{background:rgba(255,255,255,0.06); color:#dde4f0; border-color:rgba(255,255,255,0.18);}
+
+  /* ── STATS ── */
+  .hist-stats{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:14px;
+    padding:22px 40px 0; position:relative; z-index:1;
+  }
+  .hist-stat-card{
+    display:flex; align-items:center; gap:14px;
+    padding:16px 18px; border-radius:14px;
+    background:#0b1220; border:1px solid rgba(255,255,255,0.065);
+    transition:border-color .18s;
+  }
+  .hist-stat-card:hover{border-color:rgba(255,255,255,0.11);}
+  .hist-stat-icon{font-size:22px; flex-shrink:0;}
+  .hist-stat-value{font-size:26px; font-weight:900; line-height:1;}
+  .hist-stat-label{font-size:12px; color:rgba(221,228,240,0.45); margin-top:3px; font-weight:500;}
+
+  /* ── BANNER ── */
+  .hist-banner{
+    display:flex; align-items:center; gap:10px; margin:16px 40px 0; padding:12px 16px;
+    border-radius:10px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.25);
+    color:#fca5a5; font-size:13.5px; font-weight:500; position:relative; z-index:1;
+  }
+  .hist-banner-ico{
+    width:22px; height:22px; border-radius:50%; flex-shrink:0; font-size:11px; font-weight:900;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(239,68,68,0.2); color:#ef4444;
+  }
+  .hist-banner-x{margin-left:auto; background:none; border:none; cursor:pointer; opacity:.5; color:inherit;}
+  .hist-banner-x:hover{opacity:1;}
+
+  /* ── TOOLBAR ── */
+  .hist-toolbar{
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    padding:20px 40px 0; position:relative; z-index:1;
+  }
+  .hist-search-wrap{
+    position:relative; flex:1; min-width:260px;
+  }
+  .hist-search-ico{position:absolute; left:13px; top:50%; transform:translateY(-50%); color:rgba(221,228,240,0.3); pointer-events:none;}
+  .hist-search{
+    width:100%; padding:11px 40px 11px 38px;
+    background:rgba(0,0,0,0.32); border:1px solid rgba(255,255,255,0.11); border-radius:10px;
+    color:#dde4f0; font-family:'Outfit',sans-serif; font-size:14px; outline:none;
+    transition:all .16s cubic-bezier(.4,0,.2,1);
+  }
+  .hist-search::placeholder{color:rgba(221,228,240,0.28);}
+  .hist-search:focus{border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.15);}
+  .hist-search-clear{
+    position:absolute; right:12px; top:50%; transform:translateY(-50%);
+    background:none; border:none; cursor:pointer; color:rgba(221,228,240,0.4); font-size:13px;
+  }
+  .hist-search-clear:hover{color:#dde4f0;}
+
+  /* filter tabs */
+  .hist-filter-tabs{display:flex; gap:6px; flex-wrap:wrap;}
+  .hist-tab{
+    padding:8px 14px; border-radius:8px; font-size:12.5px; font-weight:700;
+    border:1px solid rgba(255,255,255,0.1); background:transparent;
+    color:rgba(221,228,240,0.45); font-family:'Outfit',sans-serif;
+    cursor:pointer; transition:all .15s cubic-bezier(.4,0,.2,1);
+    display:flex; align-items:center; gap:6px; white-space:nowrap;
+  }
+  .hist-tab:hover{background:rgba(255,255,255,0.06); color:#dde4f0; border-color:rgba(255,255,255,0.18);}
+  .hist-tab-on{background:rgba(59,130,246,0.12)!important; border-color:rgba(59,130,246,0.35)!important; color:#60a5fa!important;}
+  .hist-tab-count{
+    padding:1px 7px; border-radius:20px; font-size:10px; font-weight:800;
+    background:rgba(255,255,255,0.1); color:rgba(221,228,240,0.7);
+  }
+  .hist-tab-on .hist-tab-count{background:rgba(59,130,246,0.25); color:#93c5fd;}
+
+  /* ── TABLE ── */
+  .hist-table-wrap{
+    margin:16px 40px 0; border-radius:14px;
+    border:1px solid rgba(255,255,255,0.065);
+    background:#0b1220; overflow:hidden;
+    position:relative; z-index:1;
+  }
+
+  .hist-table-head{
+    display:grid; grid-template-columns:160px 1fr 200px 140px 100px;
+    padding:10px 20px; background:rgba(0,0,0,0.3);
+    border-bottom:1px solid rgba(255,255,255,0.07);
+  }
+  .hist-th{font-size:11px; font-weight:700; color:rgba(221,228,240,0.38); text-transform:uppercase; letter-spacing:.7px;}
+  .hist-th-right{text-align:right;}
+
+  /* rows */
+  .hist-row{
+    display:grid; grid-template-columns:160px 1fr 200px 140px 100px;
+    padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.05);
+    align-items:center;
+    animation:hist-fade-in .3s ease both;
+    animation-delay:calc(var(--i,0) * 0.04s);
+    transition:background .14s;
+  }
+  .hist-row:last-child{border-bottom:none;}
+  .hist-row:hover{background:rgba(255,255,255,0.025);}
+  @keyframes hist-fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+  .hist-td{display:flex; align-items:center; padding-right:12px;}
+
+  /* date */
+  .hist-date-main{font-size:13.5px; font-weight:600; color:#dde4f0;}
+  .hist-date-sub{font-size:11.5px; color:rgba(221,228,240,0.4); margin-top:3px;}
+
+  /* patient */
+  .hist-patient-cell{gap:11px;}
+  .hist-avatar{
+    width:36px; height:36px; border-radius:10px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:15px; color:#fff;
+  }
+  .hist-patient-name{font-size:14px; font-weight:700;}
+  .hist-rx-id{margin-top:3px;}
+  .hist-rx-id code{font-family:'JetBrains Mono',monospace; font-size:11px; color:rgba(221,228,240,0.45);}
+
+  /* pharmacy */
+  .hist-pharmacy{
+    display:flex; align-items:center; gap:7px;
+    font-size:13.5px; color:rgba(221,228,240,0.7); font-weight:500;
+  }
+  .hist-pharmacy svg{color:rgba(221,228,240,0.35); flex-shrink:0;}
+
+  /* badge */
+  .hist-badge{
+    display:inline-flex; align-items:center; gap:7px;
+    padding:5px 12px; border-radius:20px; font-size:11.5px; font-weight:800;
+    border:1px solid; letter-spacing:.3px;
+  }
+  .hist-badge-dot{width:6px; height:6px; border-radius:50%; flex-shrink:0;}
+
+  /* actions */
+  .hist-td-right{justify-content:flex-end; padding-right:0;}
+  .hist-print-btn{
+    display:flex; align-items:center; gap:6px; padding:7px 14px; border-radius:8px;
+    border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.05);
+    color:rgba(221,228,240,0.65); font-size:12.5px; font-weight:700; font-family:'Outfit',sans-serif;
+    cursor:pointer; transition:all .14s cubic-bezier(.4,0,.2,1); white-space:nowrap;
+  }
+  .hist-print-btn:hover{background:rgba(59,130,246,0.12); border-color:rgba(59,130,246,0.35); color:#60a5fa;}
+
+  /* loading */
+  .hist-loading{
+    display:flex; align-items:center; justify-content:center; gap:12px;
+    padding:48px; color:rgba(221,228,240,0.4); font-size:14px;
+  }
+  .hist-spin{
+    width:18px; height:18px; border-radius:50%;
+    border:2px solid rgba(255,255,255,0.15); border-top-color:rgba(221,228,240,0.7);
+    animation:spin .65s linear infinite; flex-shrink:0;
+  }
+  .hist-spin-lg{width:26px; height:26px; border-width:2.5px;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* empty */
+  .hist-empty{
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    padding:56px 20px; color:rgba(221,228,240,0.3); text-align:center;
+  }
+  .hist-empty-icon{color:rgba(221,228,240,0.18); margin-bottom:6px;}
+  .hist-empty p{font-size:16px; font-weight:700; color:rgba(221,228,240,0.45); margin:0;}
+  .hist-empty small{font-size:13px;}
+
+  /* footer */
+  .hist-footer{
+    padding:14px 40px 0; font-size:13px; color:rgba(221,228,240,0.35);
+    position:relative; z-index:1;
+  }
+  .hist-footer strong{color:rgba(221,228,240,0.6);}
+
+  /* ── RESPONSIVE ── */
+  @media(max-width:960px){
+    .hist-header{padding:22px 22px 18px;}
+    .hist-stats{grid-template-columns:repeat(2,1fr); padding:18px 22px 0;}
+    .hist-toolbar{padding:16px 22px 0;}
+    .hist-table-wrap{margin:14px 22px 0;}
+    .hist-table-head{grid-template-columns:1fr 1fr 120px 80px; }
+    .hist-table-head .hist-th:first-child,.hist-row .hist-td:first-child{display:none;}
+    .hist-row{grid-template-columns:1fr 1fr 120px 80px;}
+    .hist-footer{padding:12px 22px 0;}
+  }
+  @media(max-width:600px){
+    .hist-stats{grid-template-columns:repeat(2,1fr);}
+    .hist-table-head{grid-template-columns:1fr 120px 70px;}
+    .hist-table-head .hist-th:nth-child(3),.hist-row .hist-td:nth-child(3){display:none;}
+    .hist-row{grid-template-columns:1fr 120px 70px;}
+    .hist-title{font-size:22px;}
+    .hist-filter-tabs{display:none;}
+  }

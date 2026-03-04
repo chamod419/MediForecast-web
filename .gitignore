@@ -1,0 +1,17 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.sqlite3
+
+# Django / secrets
+.env
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# editor
+.vscode/
+.DS_Store
