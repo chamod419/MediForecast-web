@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-dropzone": "^15.0.0",
+    "recharts": "^3.7.0"
+  }
+}

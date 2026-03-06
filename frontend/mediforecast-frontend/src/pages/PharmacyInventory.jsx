@@ -9,6 +9,8 @@ import {
   importInventoryExcel,
 } from "../api/pharmacyInventoryApi";
 
+import { exportDispensedReportExcel } from "../api/pharmacyInventoryApi";
+
 /* ── Fonts ─────────────────────────────────────────────────────────────────── */
 if (!document.getElementById("mf-inv-fonts")) {
   const l = document.createElement("link");
@@ -67,6 +69,8 @@ export default function PharmacyInventory() {
   const nav = useNavigate();
   const pharmacyId = localStorage.getItem("pharmacy_id") || "";
   const fullName   = localStorage.getItem("full_name") || localStorage.getItem("username") || "";
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const thirtyDaysAgoISO = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
 
   const [rows,         setRows]         = useState([]);
   const [selected,     setSelected]     = useState(null);
@@ -77,6 +81,10 @@ export default function PharmacyInventory() {
   const [banner,       setBanner]       = useState({ type: "", text: "" });
   const [importResult, setImportResult] = useState(null);
   const [edit,         setEdit]         = useState({ quantity_in_stock: "", reorder_level: "", expiry_date: "" });
+
+  const [dispFrom, setDispFrom] = useState(thirtyDaysAgoISO);
+  const [dispTo, setDispTo] = useState(todayISO);
+  const [downloadingDisp, setDownloadingDisp] = useState(false);
 
   const handleAuthFail = () => { logout(); nav("/login"); };
   const showBanner     = (type, text) => setBanner({ type, text });
@@ -180,6 +188,35 @@ export default function PharmacyInventory() {
     }
   };
 
+  const downloadDispensedExcel = async () => {
+  setBanner({ type: "", text: "" });
+  setDownloadingDisp(true);
+
+  try {
+    if (dispFrom && dispTo && dispFrom > dispTo) {
+      setDownloadingDisp(false);
+      return showBanner("warn", "From date cannot be after To date.");
+    }
+
+    const blob = await exportDispensedReportExcel(dispFrom, dispTo);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dispensed_report_${dispFrom || "all"}_to_${dispTo || "all"}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    showBanner("success", "Dispensed report downloaded successfully.");
+  } catch (e) {
+    const msg = e?.message || "Dispensed report download failed.";
+    showBanner("error", msg);
+  } finally {
+    setDownloadingDisp(false);
+  }
+};
+
   /* ── render ── */
   return (
     <>
@@ -226,20 +263,103 @@ export default function PharmacyInventory() {
 
             {/* Action buttons */}
             <div className="pi-actions">
+
               <button className="pi-btn pi-btn-ghost" onClick={() => load(true)} disabled={loading}>
                 {loading
                   ? <><span className="pi-spin" />Loading</>
                   : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>Refresh</>}
               </button>
+            
+              {/* ✅ Inventory Export */}
               <button className="pi-btn pi-btn-green" onClick={downloadExcel}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
                 Export
               </button>
+            
+              {/* ✅ Inventory Import */}
               <label className="pi-btn pi-btn-blue">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
                 Import
-                <input type="file" accept=".xlsx" style={{ display: "none" }} onChange={e => { uploadExcel(e.target.files?.[0]); e.target.value = ""; }} />
+                <input
+                  type="file"
+                  accept=".xlsx"
+                  style={{ display: "none" }}
+                  onChange={e => { uploadExcel(e.target.files?.[0]); e.target.value = ""; }}
+                />
               </label>
+            
+              {/* ✅ Dispensed Report Date Picker */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "6px 10px",
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.10)",
+                background: "rgba(0,0,0,0.25)",
+              }}>
+                <span style={{ fontSize: 12, opacity: 0.7, fontWeight: 700 }}>Dispensed</span>
+            
+                <input
+                  type="date"
+                  value={dispFrom}
+                  onChange={(e) => setDispFrom(e.target.value)}
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    color: "#eee",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 10,
+                    padding: "7px 10px",
+                    fontSize: 12,
+                    outline: "none",
+                  }}
+                />
+                <span style={{ opacity: 0.5, fontSize: 12 }}>to</span>
+            
+                <input
+                  type="date"
+                  value={dispTo}
+                  onChange={(e) => setDispTo(e.target.value)}
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    color: "#eee",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 10,
+                    padding: "7px 10px",
+                    fontSize: 12,
+                    outline: "none",
+                  }}
+                />
+            
+                <button
+                  className="pi-btn pi-btn-ghost"
+                  onClick={downloadDispensedExcel}
+                  disabled={downloadingDisp}
+                  style={{ marginLeft: 4 }}
+                  title="Download dispensed items Excel"
+                >
+                  {downloadingDisp
+                    ? <><span className="pi-spin" />Downloading</>
+                    : <>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
+                      Dispensed Excel
+                    </>
+                  }
+                </button>
+              </div>
+            
             </div>
           </div>
         </header>

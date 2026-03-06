@@ -28,3 +28,27 @@ export async function importInventoryExcel(file) {
   });
   return res.data;
 }
+
+
+export async function exportDispensedReportExcel(from, to) {
+  const token = localStorage.getItem("access");
+  const params = new URLSearchParams();
+  if (from) params.append("from", from);
+  if (to) params.append("to", to);
+
+  const res = await fetch(
+    `http://127.0.0.1:8000/api/reports/dispensed/export/?${params.toString()}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  if (!res.ok) {
+    let msg = "Download failed";
+    try {
+      const data = await res.json();
+      msg = data?.detail || msg;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  return await res.blob();
+}

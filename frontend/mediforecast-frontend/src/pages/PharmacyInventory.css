@@ -237,6 +237,12 @@
   transition: background 0.14s, border-color 0.14s;
   animation: pi-row-in 0.25s ease both;
 }
+
+
+.pi-actions input[type="date"] {
+  color-scheme: dark;
+}
+
 @keyframes pi-row-in { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:translateX(0); } }
 .pi-row:last-child { border-bottom: none; }
 .pi-row:hover { background: rgba(255,255,255,0.025); }

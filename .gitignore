@@ -2,16 +2,28 @@
 venv/
 __pycache__/
 *.pyc
-*.sqlite3
+*.pyo
+*.pyd
+db.sqlite3
 
-# Django / secrets
+# Environment
 .env
+
+# Django static/media optional
+staticfiles/
+media/
 
 # Node
 node_modules/
-dist/
-.vite/
+npm-debug.log*
 
-# editor
+# Frontend build
+dist/
+build/
+
+# VS Code
 .vscode/
+
+# OS files
 .DS_Store
+Thumbs.db
