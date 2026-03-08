@@ -15,7 +15,7 @@ export const searchDrugs = async (q) =>
 export const createPrescription = async (payload) =>
   (await api.post("/prescriptions/", payload)).data;
 
-// ✅ MUST HAVE (stock check)
+// MUST HAVE (stock check)
 export const checkAvailability = async (pharmacy_id, drug_id) =>
   (
     await api.get(
@@ -23,6 +23,6 @@ export const checkAvailability = async (pharmacy_id, drug_id) =>
     )
   ).data;
 
-// ✅ For print page (if you added)
+// For print page 
 export const getPrescriptionById = async (id) =>
   (await api.get(`/prescriptions/${id}/?format=json`)).data;

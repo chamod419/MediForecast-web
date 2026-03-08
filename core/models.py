@@ -123,8 +123,7 @@ class UserProfile(models.Model):
         return f"{self.user.username} - {self.role}"
 
 
-# =============================================================================
-# ✅ NEW: Inventory Import History (for monthly opening stock + reconciliation)
+# Inventory Import History (for monthly opening stock + reconciliation)
 # =============================================================================
 
 class InventoryImportBatch(models.Model):

@@ -22,7 +22,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
 
-    "core.apps.CoreConfig",  # ✅ only this, do NOT add "core" again
+    "core.apps.CoreConfig", 
 ]
 
 MIDDLEWARE = [

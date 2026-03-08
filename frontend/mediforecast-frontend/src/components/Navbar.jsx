@@ -25,7 +25,7 @@ const NAV_LINKS = {
   { to: "/pharmacy/change-password",  exact: false, icon: "lock",      label: "Change Password"  },
 ],
   ADMIN: [
-    { to: "/admin-panel", exact: false, icon: "settings", label: "Admin Panel" },
+  { to: "/admin/dashboard", exact: false, icon: "settings", label: "Admin Panel" },
   ],
 };
 
@@ -76,7 +76,7 @@ export default function Navbar() {
   const homePath =
     role === "DOCTOR"   ? "/doctor" :
     role === "PHARMACY" ? "/pharmacy" :
-    role === "ADMIN"    ? "/admin-panel" : "/login";
+    role === "ADMIN" ? "/admin/dashboard" : "/login";
 
   const isActive = (to, exact) =>
     exact ? location.pathname === to

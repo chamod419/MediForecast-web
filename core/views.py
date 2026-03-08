@@ -2,8 +2,14 @@ import uuid
 import calendar
 from datetime import date, datetime, timedelta
 
+import pandas as pd
+import numpy as np
+from dateutil.relativedelta import relativedelta
+
+from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import Q, F
+from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.http import HttpResponse
 
@@ -20,8 +26,8 @@ from openpyxl.styles import Font, Alignment, PatternFill
 
 from .models import (
     Pharmacy, Patient, Drug, Prescription, Inventory,
-    PrescriptionItem,
-    InventoryImportBatch, InventoryImportItem
+    PrescriptionItem, InventoryImportBatch, InventoryImportItem,
+    UserProfile
 )
 from .serializers import (
     PharmacySerializer,
@@ -30,11 +36,14 @@ from .serializers import (
     PrescriptionCreateSerializer,
     PrescriptionReadSerializer,
     InventorySerializer,
+    AdminUserSerializer,
+    AdminPharmacySerializer,
+    AdminDrugSerializer,
 )
-from .permissions import IsDoctor, IsPharmacy
+from .permissions import IsDoctor, IsPharmacy, IsAdmin
+from .utils import model
 
 
-# =============================================================================
 # Helpers
 # =============================================================================
 
@@ -101,7 +110,11 @@ def _parse_date_param(d: str, end=False):
     return timezone.make_aware(datetime(y, m, dd, 0, 0, 0))
 
 
-# =============================================================================
+def normalize(s):
+    """Lowercase + strip for fuzzy brand name matching."""
+    return str(s or "").lower().strip()
+
+
 # Doctor utilities
 # =============================================================================
 
@@ -127,7 +140,6 @@ class DoctorPrescriptionHistoryView(generics.ListAPIView):
         return Prescription.objects.filter(doctor=self.request.user).order_by("-created_at")
 
 
-# =============================================================================
 # Basic lists for Doctor UI
 # =============================================================================
 
@@ -165,7 +177,6 @@ class DrugListView(generics.ListAPIView):
         return qs
 
 
-# =============================================================================
 # Prescriptions
 # =============================================================================
 
@@ -303,7 +314,6 @@ class PrescriptionDetailView(generics.RetrieveAPIView):
         return qs
 
 
-# =============================================================================
 # Pharmacy Inventory
 # =============================================================================
 
@@ -353,20 +363,10 @@ class PharmacyInventoryUpdateView(generics.UpdateAPIView):
         return self.partial_update(request, *args, **kwargs)
 
 
-# =============================================================================
-# ✅ EXPORT — Last Imported vs Current vs Reduced (with fallback)
+# Inventory Export
 # =============================================================================
 
 class InventoryExportView(APIView):
-    """
-    GET /api/inventory/export/
-
-    ✅ DEFAULT:
-      Brand | Generic | Category | Last Imported Qty | Current Qty | Reduced Qty
-
-    Optional:
-      ?mode=basic   -> old 5 columns
-    """
     permission_classes = [IsPharmacy]
 
     def get(self, request):
@@ -376,9 +376,6 @@ class InventoryExportView(APIView):
 
         mode = (request.query_params.get("mode") or "").strip().lower()
 
-        # -------------------------------
-        # BASIC export
-        # -------------------------------
         if mode == "basic":
             qs = (
                 Inventory.objects
@@ -415,9 +412,6 @@ class InventoryExportView(APIView):
             wb.save(resp)
             return resp
 
-        # -------------------------------
-        # DEFAULT export you asked
-        # -------------------------------
         inv_qs = (
             Inventory.objects
             .filter(pharmacy_id=profile.pharmacy_id)
@@ -440,7 +434,6 @@ class InventoryExportView(APIView):
             ):
                 last_import_map[str(drug_id)] = int(qty or 0)
 
-        # ✅ KEY FIX: if snapshot missing => avoid 0 by using current as last-import baseline
         if not last_import_map:
             last_import_map = dict(current_map)
 
@@ -500,18 +493,10 @@ class InventoryExportView(APIView):
         return resp
 
 
-# =============================================================================
-# Import view
+# Inventory Import
 # =============================================================================
 
 class InventoryImportView(APIView):
-    """
-    POST /api/inventory/import/
-    Upload Excel and:
-    - upsert drugs
-    - update inventory
-    - store batch snapshot items (important for export last imported qty)
-    """
     permission_classes = [IsPharmacy]
     parser_classes = [MultiPartParser, FormParser]
 
@@ -627,18 +612,10 @@ class InventoryImportView(APIView):
         }, status=200)
 
 
-# =============================================================================
-# ✅ NEW: Dispensed items Excel report
+# Dispensed items Excel report
 # =============================================================================
 
 class DispensedReportExportView(APIView):
-    """
-    GET /api/reports/dispensed/export/?from=YYYY-MM-DD&to=YYYY-MM-DD
-    Pharmacy only.
-
-    Excel columns:
-    Dispensed DateTime | Prescription ID | Drug (Generic) | Brand | Category | Qty | Patient | Dispensed By
-    """
     permission_classes = [IsPharmacy]
 
     def get(self, request):
@@ -649,7 +626,6 @@ class DispensedReportExportView(APIView):
         df = (request.query_params.get("from") or "").strip()
         dt = (request.query_params.get("to") or "").strip()
 
-        # default last 30 days
         end_dt = timezone.now()
         start_dt = end_dt - timedelta(days=30)
 
@@ -726,8 +702,7 @@ class DispensedReportExportView(APIView):
         return resp
 
 
-# =============================================================================
-# Compatibility endpoint (if you still have this URL in urls.py)
+# Compatibility endpoint
 # =============================================================================
 
 class InventoryMonthlyReportExportView(APIView):
@@ -737,24 +712,8 @@ class InventoryMonthlyReportExportView(APIView):
         return InventoryExportView().get(request)
 
 
-
-
-import pandas as pd
-import numpy as np
-from dateutil.relativedelta import relativedelta
-from django.utils import timezone
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-
-from .models import Inventory, InventoryImportItem, Prescription
-from .utils import model  
-
-
-def normalize(s):
-    """Lowercase + strip for fuzzy brand name matching."""
-    return str(s or "").lower().strip()
-
+# Prediction
+# =============================================================================
 
 class PharmacyPredictionView(APIView):
     permission_classes = [IsAuthenticated]
@@ -766,10 +725,6 @@ class PharmacyPredictionView(APIView):
         return profile
 
     def get_db_sales(self, profile, now):
-        """
-        Build monthly_sales[drug_id_str][m_offset] = qty
-        from DISPENSED prescriptions in the DB for last 12 months.
-        """
         monthly_sales = {}
 
         for m_offset in range(1, 13):
@@ -791,11 +746,6 @@ class PharmacyPredictionView(APIView):
         return monthly_sales
 
     def parse_uploaded_sales(self, file):
-        """
-        Parse uploaded CSV/Excel and return { normalized_brand_name: qty }.
-        Raises ValueError with a user-friendly message for bad/empty files.
-        """
-       
         try:
             if file.name.lower().endswith(".csv"):
                 df = pd.read_csv(file)
@@ -804,14 +754,12 @@ class PharmacyPredictionView(APIView):
         except Exception as e:
             raise ValueError(f"Could not read file. Make sure it is a valid CSV or Excel file. ({e})")
 
-        
         if df.empty or len(df.columns) == 0:
             raise ValueError("The uploaded file is empty. Please upload a file with sales data.")
 
         if len(df) == 0:
             raise ValueError("The uploaded file has no data rows. Please upload a file with at least one sale record.")
 
-        
         name_col = None
         for col in df.columns:
             if col.strip().lower() in ["brand name", "brand_name", "drug", "drug name", "drug_name", "name"]:
@@ -825,7 +773,6 @@ class PharmacyPredictionView(APIView):
                 f"Found columns: {', '.join(str(c) for c in df.columns)}"
             )
 
-        
         qty_col = None
         for col in df.columns:
             if col.strip().lower() in ["quantity", "qty", "amount", "sold", "units"]:
@@ -839,7 +786,6 @@ class PharmacyPredictionView(APIView):
                 f"Found columns: {', '.join(str(c) for c in df.columns)}"
             )
 
-        
         valid_rows = df[name_col].notna() & df[qty_col].notna()
         if valid_rows.sum() == 0:
             raise ValueError(
@@ -847,14 +793,13 @@ class PharmacyPredictionView(APIView):
                 "Please upload a file with actual sales data."
             )
 
-        
         sales = {}
         for _, row in df[valid_rows].iterrows():
             name = normalize(row[name_col])
             try:
                 qty = int(float(row[qty_col] or 0))
             except (ValueError, TypeError):
-                continue  
+                continue
             if name:
                 sales[name] = sales.get(name, 0) + qty
 
@@ -867,23 +812,17 @@ class PharmacyPredictionView(APIView):
         return sales
 
     def build_features(self, profile, now, uploaded_sales=None):
-        """
-        Build the 30 XGBoost features, one row per drug in inventory.
-        LAG_1 priority:
-          1. Uploaded file (matched by normalized brand name)
-          2. DB dispensed prescriptions last month
-        """
         next_month_dt = now + relativedelta(months=1)
-        month   = next_month_dt.month
-        year    = next_month_dt.year
+        month = next_month_dt.month
+        year = next_month_dt.year
         quarter = (month - 1) // 3 + 1
 
-        is_monsoon    = 1 if month in [5, 6, 7, 8, 9, 10] else 0
-        is_year_end   = 1 if month == 12 else 0
-        is_year_start = 1 if month == 1  else 0
-        is_avurudu    = 1 if month == 4  else 0
-        is_vesak      = 1 if month == 5  else 0
-        is_deepavali  = 1 if month == 10 else 0
+        is_monsoon = 1 if month in [5, 6, 7, 8, 9, 10] else 0
+        is_year_end = 1 if month == 12 else 0
+        is_year_start = 1 if month == 1 else 0
+        is_avurudu = 1 if month == 4 else 0
+        is_vesak = 1 if month == 5 else 0
+        is_deepavali = 1 if month == 10 else 0
         month_sin = np.sin(2 * np.pi * month / 12)
         month_cos = np.cos(2 * np.pi * month / 12)
 
@@ -902,21 +841,20 @@ class PharmacyPredictionView(APIView):
         meta = []
 
         for inv in inventory_qs:
-            drug          = inv.drug
-            drug_id_str   = str(drug.drug_id)
-            drug_id_int   = drug.drug_id.int % 10**9
-            category_id   = category_map.get(drug.category, 0)
+            drug = inv.drug
+            drug_id_str = str(drug.drug_id)
+            drug_id_int = drug.drug_id.int % 10**9
+            category_id = category_map.get(drug.category, 0)
             current_stock = inv.quantity_in_stock
-            brand_norm    = normalize(drug.brand_name)
+            brand_norm = normalize(drug.brand_name)
 
             drug_sales = db_sales.get(drug_id_str, {})
-            lag1  = drug_sales.get(1,  0)
-            lag2  = drug_sales.get(2,  0)
-            lag3  = drug_sales.get(3,  0)
-            lag6  = drug_sales.get(6,  0)
+            lag1 = drug_sales.get(1, 0)
+            lag2 = drug_sales.get(2, 0)
+            lag3 = drug_sales.get(3, 0)
+            lag6 = drug_sales.get(6, 0)
             lag12 = drug_sales.get(12, 0)
 
-        
             if uploaded_sales is not None:
                 if brand_norm in uploaded_sales:
                     lag1 = uploaded_sales[brand_norm]
@@ -926,20 +864,25 @@ class PharmacyPredictionView(APIView):
                             lag1 = uqty
                             break
 
-            recent3  = [drug_sales.get(i, 0) for i in range(1, 4)];  recent3[0]  = lag1
-            recent6  = [drug_sales.get(i, 0) for i in range(1, 7)];  recent6[0]  = lag1
-            recent12 = [drug_sales.get(i, 0) for i in range(1, 13)]; recent12[0] = lag1
+            recent3 = [drug_sales.get(i, 0) for i in range(1, 4)]
+            recent3[0] = lag1
 
-            roll3_mean  = float(np.mean(recent3))
-            roll6_mean  = float(np.mean(recent6))
+            recent6 = [drug_sales.get(i, 0) for i in range(1, 7)]
+            recent6[0] = lag1
+
+            recent12 = [drug_sales.get(i, 0) for i in range(1, 13)]
+            recent12[0] = lag1
+
+            roll3_mean = float(np.mean(recent3))
+            roll6_mean = float(np.mean(recent6))
             roll12_mean = float(np.mean(recent12))
-            roll3_std   = float(np.std(recent3))
-            roll3_max   = float(np.max(recent3))
-            roll3_min   = float(np.min(recent3))
-            mom_change  = lag1 - lag2
-            yoy_change  = lag1 - lag12
+            roll3_std = float(np.std(recent3))
+            roll3_max = float(np.max(recent3))
+            roll3_min = float(np.min(recent3))
+            mom_change = lag1 - lag2
+            yoy_change = lag1 - lag12
 
-            unit_price    = float(getattr(drug, "unit_price_lkr", 0) or 0)
+            unit_price = float(getattr(drug, "unit_price_lkr", 0) or 0)
             reorder_level = int(getattr(inv, "reorder_level", 0) or 0)
 
             last_item = InventoryImportItem.objects.filter(
@@ -952,50 +895,50 @@ class PharmacyPredictionView(APIView):
             else:
                 last_qty = current_stock + lag1
 
-            reduced       = lag1
-            stock_ratio   = (current_stock / last_qty) if last_qty > 0 else 1.0
+            reduced = lag1
+            stock_ratio = (current_stock / last_qty) if last_qty > 0 else 1.0
             stock_cushion = (current_stock - reorder_level) if reorder_level > 0 else current_stock
 
             rows.append({
-                "DRUG_ID":        drug_id_int,
-                "CATEGORY_ID":    category_id,
-                "MONTH":          month,
-                "YEAR":           year,
-                "QUARTER":        quarter,
-                "MONTH_SIN":      month_sin,
-                "MONTH_COS":      month_cos,
-                "IS_MONSOON":     is_monsoon,
-                "IS_YEAR_END":    is_year_end,
-                "IS_YEAR_START":  is_year_start,
-                "IS_AVURUDU":     is_avurudu,
-                "IS_VESAK":       is_vesak,
-                "IS_DEEPAVALI":   is_deepavali,
-                "LAG_1":          lag1,
-                "LAG_2":          lag2,
-                "LAG_3":          lag3,
-                "LAG_6":          lag6,
-                "LAG_12":         lag12,
-                "ROLL_3_MEAN":    roll3_mean,
-                "ROLL_6_MEAN":    roll6_mean,
-                "ROLL_12_MEAN":   roll12_mean,
-                "ROLL_3_STD":     roll3_std,
-                "ROLL_3_MAX":     roll3_max,
-                "ROLL_3_MIN":     roll3_min,
-                "MOM_CHANGE":     mom_change,
-                "YOY_CHANGE":     yoy_change,
+                "DRUG_ID": drug_id_int,
+                "CATEGORY_ID": category_id,
+                "MONTH": month,
+                "YEAR": year,
+                "QUARTER": quarter,
+                "MONTH_SIN": month_sin,
+                "MONTH_COS": month_cos,
+                "IS_MONSOON": is_monsoon,
+                "IS_YEAR_END": is_year_end,
+                "IS_YEAR_START": is_year_start,
+                "IS_AVURUDU": is_avurudu,
+                "IS_VESAK": is_vesak,
+                "IS_DEEPAVALI": is_deepavali,
+                "LAG_1": lag1,
+                "LAG_2": lag2,
+                "LAG_3": lag3,
+                "LAG_6": lag6,
+                "LAG_12": lag12,
+                "ROLL_3_MEAN": roll3_mean,
+                "ROLL_6_MEAN": roll6_mean,
+                "ROLL_12_MEAN": roll12_mean,
+                "ROLL_3_STD": roll3_std,
+                "ROLL_3_MAX": roll3_max,
+                "ROLL_3_MIN": roll3_min,
+                "MOM_CHANGE": mom_change,
+                "YOY_CHANGE": yoy_change,
                 "UNIT_PRICE_LKR": unit_price,
-                "REORDER_LEVEL":  reorder_level,
-                "STOCK_RATIO":    stock_ratio,
-                "STOCK_CUSHION":  stock_cushion,
+                "REORDER_LEVEL": reorder_level,
+                "STOCK_RATIO": stock_ratio,
+                "STOCK_CUSHION": stock_cushion,
             })
 
             meta.append({
-                "brand_name":   drug.brand_name,
+                "brand_name": drug.brand_name,
                 "generic_name": drug.generic_name,
-                "category":     drug.category,
-                "last":         last_qty,
-                "current":      current_stock,
-                "reduced":      reduced,
+                "category": drug.category,
+                "last": last_qty,
+                "current": current_stock,
+                "reduced": reduced,
             })
 
         return pd.DataFrame(rows), meta
@@ -1039,3 +982,282 @@ class PharmacyPredictionView(APIView):
                 return Response({"detail": str(e)}, status=400)
 
         return self._run_prediction(profile, now, uploaded_sales)
+
+
+# Admin Dashboard + Management APIs
+# =============================================================================
+
+class AdminDashboardView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        today = timezone.now().date()
+
+        data = {
+            "users": {
+                "total": User.objects.count(),
+                "doctors": UserProfile.objects.filter(role=UserProfile.ROLE_DOCTOR).count(),
+                "pharmacy_users": UserProfile.objects.filter(role=UserProfile.ROLE_PHARMACY).count(),
+                "admins": UserProfile.objects.filter(role=UserProfile.ROLE_ADMIN).count(),
+            },
+            "business": {
+                "pharmacies": Pharmacy.objects.count(),
+                "patients": Patient.objects.count(),
+                "drugs": Drug.objects.count(),
+                "inventory_items": Inventory.objects.count(),
+            },
+            "prescriptions": {
+                "total": Prescription.objects.count(),
+                "pending": Prescription.objects.filter(status=Prescription.Status.PENDING).count(),
+                "ready": Prescription.objects.filter(status=Prescription.Status.READY).count(),
+                "dispensed": Prescription.objects.filter(status=Prescription.Status.DISPENSED).count(),
+                "cancelled": Prescription.objects.filter(status=Prescription.Status.CANCELLED).count(),
+            },
+            "alerts": {
+                "low_stock_items": Inventory.objects.filter(quantity_in_stock__lte=F("reorder_level")).count(),
+                "out_of_stock_items": Inventory.objects.filter(quantity_in_stock__lte=0).count(),
+                "expired_items": Inventory.objects.filter(expiry_date__lt=today).count(),
+            },
+        }
+        return Response(data, status=200)
+
+
+class AdminUserListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = AdminUserSerializer
+
+    def get_queryset(self):
+        qs = User.objects.select_related("profile", "profile__pharmacy").all().order_by("-date_joined")
+
+        q = self.request.query_params.get("q", "").strip()
+        role = self.request.query_params.get("role", "").strip().upper()
+        is_active = self.request.query_params.get("is_active", "").strip().lower()
+
+        if q:
+            qs = qs.filter(
+                Q(username__icontains=q) |
+                Q(first_name__icontains=q) |
+                Q(last_name__icontains=q) |
+                Q(email__icontains=q)
+            )
+
+        if role:
+            qs = qs.filter(profile__role=role)
+
+        if is_active in ["true", "false"]:
+            qs = qs.filter(is_active=(is_active == "true"))
+
+        return qs
+
+
+class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = AdminUserSerializer
+    queryset = User.objects.select_related("profile", "profile__pharmacy").all()
+    lookup_field = "id"
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        if instance == request.user:
+            return Response({"detail": "You cannot delete your own account."}, status=400)
+
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"detail": "Cannot delete this user because related records exist."},
+                status=400
+            )
+
+
+class AdminPharmacyListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = AdminPharmacySerializer
+
+    def get_queryset(self):
+        qs = Pharmacy.objects.all().order_by("name")
+        q = self.request.query_params.get("q", "").strip()
+
+        if q:
+            qs = qs.filter(
+                Q(name__icontains=q) |
+                Q(location__icontains=q) |
+                Q(hospital_branch__icontains=q)
+            )
+
+        return qs
+
+
+class AdminPharmacyDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = AdminPharmacySerializer
+    queryset = Pharmacy.objects.all()
+    lookup_field = "pharmacy_id"
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"detail": "Cannot delete this pharmacy because related records exist."},
+                status=400
+            )
+
+
+class AdminDrugListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = AdminDrugSerializer
+
+    def get_queryset(self):
+        qs = Drug.objects.all().order_by("generic_name")
+        q = self.request.query_params.get("q", "").strip()
+        category = self.request.query_params.get("category", "").strip()
+
+        if q:
+            qs = qs.filter(
+                Q(generic_name__icontains=q) |
+                Q(brand_name__icontains=q)
+            )
+
+        if category:
+            qs = qs.filter(category__icontains=category)
+
+        return qs
+
+
+class AdminDrugDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = AdminDrugSerializer
+    queryset = Drug.objects.all()
+    lookup_field = "drug_id"
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"detail": "Cannot delete this drug because related records exist."},
+                status=400
+            )
+
+
+class AdminPatientListView(generics.ListCreateAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = PatientSerializer
+
+    def get_queryset(self):
+        qs = Patient.objects.all().order_by("-created_at")
+        q = self.request.query_params.get("q", "").strip()
+
+        if q:
+            qs = qs.filter(
+                Q(full_name__icontains=q) |
+                Q(nic_number__icontains=q) |
+                Q(phone__icontains=q)
+            )
+
+        return qs
+
+
+class AdminPatientDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = PatientSerializer
+    queryset = Patient.objects.all()
+    lookup_field = "patient_id"
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"detail": "Cannot delete this patient because related records exist."},
+                status=400
+            )
+
+
+class AdminPrescriptionListView(generics.ListAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = PrescriptionReadSerializer
+
+    def get_queryset(self):
+        qs = (
+            Prescription.objects
+            .select_related("doctor", "patient", "pharmacy", "dispensed_by")
+            .prefetch_related("items__drug")
+            .all()
+            .order_by("-created_at")
+        )
+
+        q = self.request.query_params.get("q", "").strip()
+        status_filter = self.request.query_params.get("status", "").strip().upper()
+        pharmacy_id = self.request.query_params.get("pharmacy_id", "").strip()
+        doctor_id = self.request.query_params.get("doctor_id", "").strip()
+
+        if q:
+            qs = qs.filter(
+                Q(patient__full_name__icontains=q) |
+                Q(patient__nic_number__icontains=q) |
+                Q(doctor__username__icontains=q) |
+                Q(pharmacy__name__icontains=q)
+            )
+
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        if pharmacy_id:
+            qs = qs.filter(pharmacy_id=pharmacy_id)
+
+        if doctor_id:
+            qs = qs.filter(doctor_id=doctor_id)
+
+        return qs
+
+
+class AdminPrescriptionDetailView(generics.RetrieveAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = PrescriptionReadSerializer
+    queryset = Prescription.objects.select_related(
+        "doctor", "patient", "pharmacy", "dispensed_by"
+    ).prefetch_related("items__drug")
+    lookup_field = "prescription_id"
+
+
+class AdminInventoryListView(generics.ListAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = InventorySerializer
+
+    def get_queryset(self):
+        qs = (
+            Inventory.objects
+            .select_related("pharmacy", "drug")
+            .all()
+            .order_by("pharmacy__name", "drug__generic_name")
+        )
+
+        q = self.request.query_params.get("q", "").strip()
+        pharmacy_id = self.request.query_params.get("pharmacy_id", "").strip()
+        low_stock = self.request.query_params.get("low_stock", "").strip().lower()
+
+        if pharmacy_id:
+            qs = qs.filter(pharmacy_id=pharmacy_id)
+
+        if low_stock == "true":
+            qs = qs.filter(quantity_in_stock__lte=F("reorder_level"))
+
+        if q:
+            qs = qs.filter(
+                Q(pharmacy__name__icontains=q) |
+                Q(drug__generic_name__icontains=q) |
+                Q(drug__brand_name__icontains=q) |
+                Q(drug__category__icontains=q)
+            )
+
+        return qs
+
+
+class AdminInventoryDetailView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = InventorySerializer
+    queryset = Inventory.objects.select_related("pharmacy", "drug").all()
+    lookup_field = "inventory_id"

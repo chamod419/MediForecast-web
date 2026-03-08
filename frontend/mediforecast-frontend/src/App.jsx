@@ -12,10 +12,17 @@ import ProtectedRoute from "./auth/ProtectedRoute";
 
 import DoctorChangePassword from "./pages/DoctorChangePassword";
 import PharmacyChangePassword from "./pages/PharmacyChangePassword";
-
 import PharmacyInventory from "./pages/PharmacyInventory";
-
 import PharmacyPrediction from "./pages/PharmacyPrediction";
+
+import AdminShell from "./components/admin/AdminShell";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminPharmacies from "./pages/admin/AdminPharmacies";
+import AdminDrugs from "./pages/admin/AdminDrugs";
+import AdminPatients from "./pages/admin/AdminPatients";
+import AdminPrescriptions from "./pages/admin/AdminPrescriptions";
+import AdminInventory from "./pages/admin/AdminInventory";
 
 function Layout({ children }) {
   return (
@@ -30,14 +37,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Default */}
         <Route path="/" element={<Navigate to="/login" replace />} />
 
-        {/* Public */}
         <Route path="/login" element={<Login />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
 
-        {/* Doctor Routes */}
         <Route
           path="/doctor"
           element={
@@ -60,7 +64,17 @@ export default function App() {
           }
         />
 
-        {/* Pharmacy Route */}
+        <Route
+          path="/doctor/change-password"
+          element={
+            <ProtectedRoute allowedRoles={["DOCTOR"]}>
+              <Layout>
+                <DoctorChangePassword />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="/pharmacy"
           element={
@@ -72,27 +86,6 @@ export default function App() {
           }
         />
 
-        {/* Print Route (Doctor only) */}
-        <Route
-          path="/prescriptions/:id/print"
-          element={
-            <ProtectedRoute allowedRoles={["DOCTOR"]}>
-              <PrescriptionPrint />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/doctor/change-password"
-          element={
-            <ProtectedRoute allowedRoles={["DOCTOR"]}>
-              <Layout>
-                <DoctorChangePassword />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-        
         <Route
           path="/pharmacy/change-password"
           element={
@@ -126,7 +119,33 @@ export default function App() {
           }
         />
 
-        {/* Fallback */}
+        <Route
+          path="/prescriptions/:id/print"
+          element={
+            <ProtectedRoute allowedRoles={["DOCTOR"]}>
+              <PrescriptionPrint />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute allowedRoles={["ADMIN"]}>
+              <AdminShell />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="pharmacies" element={<AdminPharmacies />} />
+          <Route path="drugs" element={<AdminDrugs />} />
+          <Route path="patients" element={<AdminPatients />} />
+          <Route path="prescriptions" element={<AdminPrescriptions />} />
+          <Route path="inventory" element={<AdminInventory />} />
+        </Route>
+
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>

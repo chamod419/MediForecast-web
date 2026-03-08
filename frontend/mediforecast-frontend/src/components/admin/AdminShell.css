@@ -1,0 +1,256 @@
+.adm-shell {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #081120 0%, #0d1728 100%);
+  color: #e5eefc;
+  display: flex;
+  font-family: "Outfit", sans-serif;
+}
+
+.adm-sidebar {
+  width: 280px;
+  background: rgba(4, 9, 18, 0.96);
+  border-right: 1px solid rgba(255,255,255,0.08);
+  padding: 24px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 1100;
+}
+
+.adm-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.adm-brand-logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 12px rgba(99,102,241,0.35));
+}
+
+.adm-brand-name {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: -0.3px;
+}
+
+.adm-brand-sub {
+  font-size: 11px;
+  color: rgba(229,238,252,0.5);
+  margin-top: 2px;
+}
+
+.adm-admin-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.adm-admin-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #4338ca, #8b5cf6);
+  color: #fff;
+  font-weight: 900;
+  font-size: 18px;
+}
+
+.adm-admin-name {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.adm-admin-role {
+  font-size: 10px;
+  font-weight: 800;
+  color: #a5b4fc;
+  letter-spacing: 0.8px;
+  margin-top: 3px;
+}
+
+.adm-nav {
+  display: grid;
+  gap: 6px;
+}
+
+.adm-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: rgba(229,238,252,0.62);
+  border: 1px solid transparent;
+  transition: all 0.18s ease;
+  font-weight: 700;
+}
+
+.adm-nav-link:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.08);
+}
+
+.adm-nav-link-active {
+  color: #fff !important;
+  background: rgba(99,102,241,0.14) !important;
+  border-color: rgba(99,102,241,0.35) !important;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
+}
+
+.adm-nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.adm-logout {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(239,68,68,0.25);
+  background: rgba(239,68,68,0.08);
+  color: #fca5a5;
+  font-family: "Outfit", sans-serif;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.adm-logout:hover {
+  background: rgba(239,68,68,0.18);
+  color: #fff;
+}
+
+.adm-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.adm-topbar {
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: rgba(8,17,32,0.78);
+  backdrop-filter: blur(18px);
+  position: sticky;
+  top: 0;
+  z-index: 1050;
+}
+
+.adm-menu-btn {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #fff;
+  cursor: pointer;
+}
+
+.adm-topbar-copy {
+  color: rgba(229,238,252,0.58);
+  font-size: 13px;
+  flex: 1;
+}
+
+.adm-topbar-right {
+  display: flex;
+  align-items: center;
+}
+
+.adm-topbar-badge {
+  padding: 7px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(139,92,246,0.32);
+  background: rgba(139,92,246,0.12);
+  color: #c4b5fd;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.7px;
+}
+
+.adm-content {
+  padding: 24px;
+}
+
+.adm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 1090;
+}
+
+.adm-backdrop-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (max-width: 980px) {
+  .adm-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+  }
+
+  .adm-sidebar-open {
+    transform: translateX(0);
+  }
+
+  .adm-menu-btn {
+    display: grid;
+    place-items: center;
+  }
+
+  .adm-topbar-copy {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .adm-content {
+    padding: 16px;
+  }
+
+  .adm-topbar {
+    padding: 0 14px;
+  }
+
+  .adm-topbar-copy {
+    display: none;
+  }
+
+  .adm-sidebar {
+    width: 86vw;
+    max-width: 320px;
+  }
+}
